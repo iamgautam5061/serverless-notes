@@ -1,7 +1,7 @@
 # Serverless Notes App
 
 ## Live Demo
-(Will be added after deployment)
+https://ap-south-1.console.aws.amazon.com/amplify/apps/d17t1j5uglbq7z/overview
 
 ## Source Code
 https://github.com/<your-username>/serverless-notes
