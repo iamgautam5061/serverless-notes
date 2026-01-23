@@ -6,10 +6,10 @@ The project demonstrates clean architecture, real-world deployment, and performa
 ---
 
 ## 🔗 Live Demo
-https://<YOUR-AMPLIFY-URL>
+https://main.d33i5omyabzogj.amplifyapp.com
 
 ## 💻 Source Code
-https://github.com/<YOUR-GITHUB-USERNAME>/serverless-notes
+https://github.com/iamgautam5061/serverless-notes
 
 ---
 
