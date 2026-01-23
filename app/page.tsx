@@ -8,22 +8,41 @@ const API_URL =
 export default function Home() {
   const [notes, setNotes] = useState([]);
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [nextToken, setNextToken] = useState(null);
 
-  async function fetchNotes() {
-    setLoading(true);
-    try {
-      const res = await fetch(API_URL);
-      const data = await res.json();
-      setNotes(data);
-    } catch (err) {
-      console.error("Failed to fetch notes");
-    }
-    setLoading(false);
+  function formatTime(ts) {
+    return ts ? new Date(ts).toLocaleString() : "";
+  }
+
+  async function fetchNotes(loadMore = false) {
+    const url =
+      loadMore && nextToken
+        ? `${API_URL}?nextToken=${nextToken}`
+        : API_URL;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const items = data.items || data;
+    setNotes((prev) => (loadMore ? [...prev, ...items] : items));
+    setNextToken(data.nextToken || null);
   }
 
   async function addNote() {
     if (!text.trim()) return;
+
+    const now = Date.now();
+    const tempNote = {
+      noteId: "temp-" + now,
+      text,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setNotes((prev) => [tempNote, ...prev]);
+    setText("");
 
     await fetch(API_URL, {
       method: "POST",
@@ -31,17 +50,28 @@ export default function Home() {
       body: JSON.stringify({ text }),
     });
 
-    setText("");
     fetchNotes();
   }
 
   async function deleteNote(noteId) {
+    setNotes((prev) => prev.filter((n) => n.noteId !== noteId));
+
     await fetch(API_URL, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ noteId }),
     });
+  }
 
+  async function saveEdit(noteId) {
+    await fetch(API_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ noteId, text: editingText }),
+    });
+
+    setEditingId(null);
+    setEditingText("");
     fetchNotes();
   }
 
@@ -54,7 +84,7 @@ export default function Home() {
       <header style={styles.header}>
         <h1 style={styles.title}>Serverless Notes</h1>
         <p style={styles.subtitle}>
-          A fast, serverless web app built with AWS & Next.js
+          A fast, serverless notes app built with AWS & Next.js
         </p>
       </header>
 
@@ -63,33 +93,72 @@ export default function Home() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Write a note and press Add"
+            placeholder="Write a new note…"
             style={styles.input}
           />
-          <button onClick={addNote} style={styles.addButton}>
+          <button onClick={addNote} style={styles.primaryBtn}>
             Add
           </button>
         </div>
 
-        {loading ? (
-          <p style={styles.info}>Loading notes…</p>
-        ) : notes.length === 0 ? (
-          <p style={styles.info}>No notes yet. Add your first one 👆</p>
-        ) : (
-          <ul style={styles.list}>
-            {notes.map((n) => (
-              <li key={n.noteId} style={styles.noteItem}>
-                <span>{n.text}</span>
-                <button
-                  onClick={() => deleteNote(n.noteId)}
-                  style={styles.deleteButton}
-                  title="Delete note"
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
+        <ul style={styles.list}>
+          {notes.map((n) => (
+            <li key={n.noteId} style={styles.noteItem}>
+              {editingId === n.noteId ? (
+                <>
+                  <input
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    style={styles.editInput}
+                  />
+                  <button
+                    onClick={() => saveEdit(n.noteId)}
+                    style={styles.primaryBtn}
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div style={styles.noteText}>{n.text}</div>
+                    <div style={styles.timestamp}>
+                      Created: {formatTime(n.createdAt)}
+                      {n.updatedAt !== n.createdAt &&
+                        ` • Updated: ${formatTime(n.updatedAt)}`}
+                    </div>
+                  </div>
+
+                  <div style={styles.actions}>
+                    <button
+                      style={styles.linkBtn}
+                      onClick={() => {
+                        setEditingId(n.noteId);
+                        setEditingText(n.text);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      style={styles.dangerBtn}
+                      onClick={() => deleteNote(n.noteId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {nextToken && (
+          <button
+            onClick={() => fetchNotes(true)}
+            style={styles.loadMore}
+          >
+            Load more
+          </button>
         )}
       </div>
     </div>
@@ -100,11 +169,11 @@ const styles = {
   page: {
     minHeight: "100vh",
     background: "#f4f6f8",
-    padding: "30px 16px",
+    padding: "32px 16px",
   },
   header: {
-    maxWidth: 520,
-    margin: "0 auto 20px",
+    maxWidth: 560,
+    margin: "0 auto 24px",
     textAlign: "center",
   },
   title: {
@@ -113,21 +182,21 @@ const styles = {
   },
   subtitle: {
     marginTop: 6,
-    color: "#555",
     fontSize: 14,
+    color: "#555",
   },
   card: {
-    background: "#fff",
-    maxWidth: 520,
+    maxWidth: 560,
     margin: "0 auto",
-    borderRadius: 12,
+    background: "#fff",
     padding: 24,
+    borderRadius: 12,
     boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
   },
   inputRow: {
     display: "flex",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   input: {
     flex: 1,
@@ -136,14 +205,33 @@ const styles = {
     border: "1px solid #ccc",
     fontSize: 15,
   },
-  addButton: {
-    padding: "10px 16px",
+  editInput: {
+    flex: 1,
+    padding: 8,
     borderRadius: 6,
-    border: "none",
+    border: "1px solid #ccc",
+    marginRight: 8,
+  },
+  primaryBtn: {
+    padding: "10px 16px",
     background: "#2563eb",
     color: "#fff",
+    border: "none",
+    borderRadius: 6,
     cursor: "pointer",
-    fontSize: 15,
+  },
+  dangerBtn: {
+    background: "none",
+    border: "none",
+    color: "#dc2626",
+    cursor: "pointer",
+    marginLeft: 8,
+  },
+  linkBtn: {
+    background: "none",
+    border: "none",
+    color: "#2563eb",
+    cursor: "pointer",
   },
   list: {
     listStyle: "none",
@@ -153,22 +241,31 @@ const styles = {
   noteItem: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+    gap: 12,
     background: "#f9fafb",
-    padding: "10px 12px",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  noteText: {
+    fontSize: 15,
+  },
+  timestamp: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 4,
+  },
+  actions: {
+    display: "flex",
+    alignItems: "center",
+  },
+  loadMore: {
+    marginTop: 16,
+    width: "100%",
+    padding: 10,
     borderRadius: 6,
-    marginBottom: 8,
-  },
-  deleteButton: {
-    background: "none",
     border: "none",
-    color: "#dc2626",
+    background: "#e5e7eb",
     cursor: "pointer",
-    fontSize: 14,
-  },
-  info: {
-    textAlign: "center",
-    color: "#666",
-    fontSize: 14,
   },
 };
