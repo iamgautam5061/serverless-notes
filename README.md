@@ -28,10 +28,10 @@ https://github.com/iamgautam5061/serverless-notes
 ---
 
 ## 🏗 Architecture
-Next.js Frontend
-API Gateway (REST)
-AWS Lambda
-DynamoDB
+- Next.js Frontend
+- API Gateway (REST)
+- AWS Lambda
+- DynamoDB
 
 
 ---
